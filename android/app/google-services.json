@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "720908804489",
+    "project_id": "vidhar-27086",
+    "storage_bucket": "vidhar-27086.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:720908804489:android:827e73f651fbb1dcdb0158",
+        "android_client_info": {
+          "package_name": "com.arunnitd.vidhar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2cH7n1TwfgchUYQPZkfceuM6IKAuYG40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
