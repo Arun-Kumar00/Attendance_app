@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-4xl font-extrabold text-center mb-8 text-indigo-700">📊 Attendance Dashboard</h1>
+
+    <!-- Action Buttons -->
+    <div class="flex justify-center space-x-4 mb-8">
+      <button onclick="openModal('student')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700">➕ Add Student</button>
+      <button onclick="openModal('teacher')" class="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700">➕ Add Teacher</button>
+      <button onclick="openModal('class')" class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700">➕ Add Class</button>
+    </div>
+
+    <div class="space-y-10">
+      <div>
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800">📚 Classes</h2>
+        <div id="classes-container"></div>
+      </div>
+
+      <div>
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800">👩‍🎓 Students</h2>
+        <div id="students-container"></div>
+      </div>
+
+      <div>
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800">👨‍🏫 Teachers</h2>
+        <div id="teachers-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reusable Modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+      <h2 id="modal-title" class="text-xl font-bold mb-4">Modal</h2>
+      <form id="modal-form" class="space-y-4"></form>
+      <div class="flex justify-end space-x-4 mt-6">
+        <button onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+        <button id="modal-submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+    import { getDatabase, ref, get, update, remove, push, set } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbSGtIkm3ZXr4yxeb0G6seRJBHiclrC3E",
+      authDomain: "vidhar-27086.firebaseapp.com",
+      databaseURL: "https://vidhar-27086-default-rtdb.firebaseio.com",
+      projectId: "vidhar-27086",
+      storageBucket: "vidhar-27086.firebasestorage.app",
+      messagingSenderId: "720908804489",
+      appId: "1:720908804489:web:234a26af1442c965db0158",
+      measurementId: "G-K0ZZZ51SFK"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const auth = getAuth(app);
+
+    const classesContainer = document.getElementById("classes-container");
+    const studentsContainer = document.getElementById("students-container");
+    const teachersContainer = document.getElementById("teachers-container");
+
+    // Modal handling
+    const modal = document.getElementById("modal");
+    const modalTitle = document.getElementById("modal-title");
+    const modalForm = document.getElementById("modal-form");
+    const modalSubmit = document.getElementById("modal-submit");
+    let currentType = null;
+    let editId = null;
+    let extraParent = null;
+
+    window.openModal = function(type, id = null, parent = null, data = {}) {
+      modal.classList.remove("hidden");
+      currentType = type;
+      editId = id;
+      extraParent = parent;
+      modalForm.innerHTML = "";
+
+      if (type === "student") {
+        modalTitle.innerText = id ? "Edit Student" : "Add Student";
+        modalForm.innerHTML = `
+          <input type="text" name="name" placeholder="Name" class="w-full border rounded-lg p-2" value="${data.name || ""}">
+          <input type="text" name="rollNumber" placeholder="Roll Number" class="w-full border rounded-lg p-2" value="${data.rollNumber || ""}">
+          <input type="text" name="email" placeholder="Email" class="w-full border rounded-lg p-2" value="${data.email || ""}">
+          <input type="text" name="department" placeholder="Department" class="w-full border rounded-lg p-2" value="${data.department || ""}">
+          <input type="text" name="program" placeholder="Program" class="w-full border rounded-lg p-2" value="${data.program || ""}">
+          <input type="text" name="year" placeholder="Year" class="w-full border rounded-lg p-2" value="${data.year || ""}">
+        `;
+      }
+      else if (type === "teacher") {
+        modalTitle.innerText = id ? "Edit Teacher" : "Add Teacher";
+        modalForm.innerHTML = `
+          <input type="text" name="name" placeholder="Name" class="w-full border rounded-lg p-2" value="${data.name || ""}">
+          <input type="text" name="email" placeholder="Email" class="w-full border rounded-lg p-2" value="${data.email || ""}">
+        `;
+      }
+      else if (type === "class") {
+        modalTitle.innerText = id ? "Edit Class" : "Add Class";
+        modalForm.innerHTML = `
+          <input type="text" name="subjectName" placeholder="Subject Name" class="w-full border rounded-lg p-2" value="${data.subjectName || ""}">
+          <input type="text" name="department" placeholder="Department" class="w-full border rounded-lg p-2" value="${data.department || ""}">
+          <input type="text" name="teacherName" placeholder="Teacher Name" class="w-full border rounded-lg p-2" value="${data.teacherName || ""}">
+        `;
+      }
+    };
+
+    window.closeModal = function() {
+      modal.classList.add("hidden");
+      modalForm.innerHTML = "";
+      editId = null;
+      extraParent = null;
+    };
+
+    modalSubmit.onclick = async function(e) {
+      e.preventDefault();
+      const formData = Object.fromEntries(new FormData(modalForm).entries());
+
+      if (currentType === "student") {
+        if (editId) await update(ref(database, "users/" + editId), formData);
+        else {
+          const newRef = push(ref(database, "users"));
+          await set(newRef, { ...formData, role: "student", uid: newRef.key });
+        }
+        fetchStudentsData();
+      }
+      else if (currentType === "teacher") {
+        if (editId) await update(ref(database, "users/" + editId), formData);
+        else {
+          const newRef = push(ref(database, "users"));
+          await set(newRef, { ...formData, role: "teacher", uid: newRef.key });
+        }
+        fetchTeachersData();
+      }
+      else if (currentType === "class") {
+        if (editId && extraParent) await update(ref(database, `classes/${extraParent}/${editId}`), formData);
+        else {
+          const newRef = push(ref(database, "classes/defaultTeacher")); // adjust teacherUid
+          await set(newRef, { ...formData });
+        }
+        fetchAttendanceData();
+      }
+
+      closeModal();
+    };
+
+    // Delete helpers
+    window.deleteStudent = async uid => {
+      if (confirm("Delete this student?")) {
+        await remove(ref(database, "users/" + uid));
+        fetchStudentsData();
+      }
+    };
+
+    window.deleteTeacher = async uid => {
+      if (confirm("Delete this teacher?")) {
+        await remove(ref(database, "users/" + uid));
+        fetchTeachersData();
+      }
+    };
+
+    window.deleteClass = async (teacherUid, classId) => {
+      if (confirm("Delete this class?")) {
+        await remove(ref(database, `classes/${teacherUid}/${classId}`));
+        fetchAttendanceData();
+      }
+    };
+
+    // Expand/Collapse
+    window.toggleExpansion = function (el) {
+      const details = el.parentElement.querySelector(".class-details");
+      if (details) details.classList.toggle("hidden");
+    };
+
+    // Fetch Functions (students/teachers/classes) same as before but with Edit/Delete buttons
+    async function fetchStudentsData() {
+      const snap = await get(ref(database, "users"));
+      if (!snap.exists()) return;
+      const users = snap.val();
+      const students = Object.values(users).filter(u => u.role === "student");
+
+      studentsContainer.innerHTML = "";
+      students.forEach(s => {
+        studentsContainer.innerHTML += `
+          <div class="bg-white p-4 rounded-lg shadow flex justify-between items-center mb-3">
+            <div>
+              <h3 class="font-bold">${s.rollNumber} - ${s.name}</h3>
+              <p class="text-sm text-gray-600">${s.email}</p>
+              <p class="text-xs text-gray-500">${s.department} | ${s.program} | ${s.year}</p>
+            </div>
+            <div>
+              <button class="text-blue-600 mr-2" onclick='openModal("student","${s.uid}",null,${JSON.stringify(s)})'>✏️</button>
+              <button class="text-red-600" onclick="deleteStudent('${s.uid}')">🗑️</button>
+            </div>
+          </div>`;
+      });
+    }
+
+    async function fetchTeachersData() {
+      const snap = await get(ref(database, "users"));
+      if (!snap.exists()) return;
+      const users = snap.val();
+      const teachers = Object.values(users).filter(u => u.role === "teacher");
+
+      teachersContainer.innerHTML = "";
+      teachers.forEach(t => {
+        teachersContainer.innerHTML += `
+          <div class="bg-white p-4 rounded-lg shadow flex justify-between items-center mb-3">
+            <div>
+              <h3 class="font-bold">${t.name}</h3>
+              <p class="text-sm text-gray-600">${t.email}</p>
+            </div>
+            <div>
+              <button class="text-blue-600 mr-2" onclick='openModal("teacher","${t.uid}",null,${JSON.stringify(t)})'>✏️</button>
+              <button class="text-red-600" onclick="deleteTeacher('${t.uid}')">🗑️</button>
+            </div>
+          </div>`;
+      });
+    }
+
+    async function fetchAttendanceData() {
+      const snap = await get(ref(database, "classes"));
+      if (!snap.exists()) return;
+      const classes = snap.val();
+
+      classesContainer.innerHTML = "";
+      Object.keys(classes).forEach(teacherUid => {
+        Object.keys(classes[teacherUid]).forEach(classId => {
+          const c = classes[teacherUid][classId];
+          classesContainer.innerHTML += `
+            <div class="bg-white p-4 rounded-lg shadow mb-3">
+              <div class="flex justify-between items-center cursor-pointer" onclick="toggleExpansion(this)">
+                <h3 class="font-bold">${c.subjectName}</h3>
+                <div>
+                  <button class="text-blue-600 mr-2" onclick='openModal("class","${classId}","${teacherUid}",${JSON.stringify(c)})'>✏️</button>
+                  <button class="text-red-600" onclick="deleteClass('${teacherUid}','${classId}')">🗑️</button>
+                </div>
+              </div>
+              <div class="class-details hidden mt-3 text-sm text-gray-600">
+                Teacher: ${c.teacherName || "N/A"} | Dept: ${c.department || "N/A"}
+              </div>
+            </div>`;
+        });
+      });
+    }
+
+    async function fetchAll() {
+      await fetchStudentsData();
+      await fetchTeachersData();
+      await fetchAttendanceData();
+    }
+
+    fetchAll();
+  </script>
+</body>
+</html>

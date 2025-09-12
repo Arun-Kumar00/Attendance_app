@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Database Admin Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            color: #4a5568;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1rem;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .config-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .config-panel h2 {
+            color: #4a5568;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .config-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        input, select, button {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+        
+        .status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #c6f6d5;
+            color: #2f855a;
+            border: 1px solid #9ae6b4;
+        }
+        
+        .status.error {
+            background: #fed7d7;
+            color: #c53030;
+            border: 1px solid #fbb6ce;
+        }
+        
+        .status.info {
+            background: #bee3f8;
+            color: #2b6cb0;
+            border: 1px solid #90cdf4;
+        }
+        
+        .data-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .data-section h2 {
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+        
+        .tree-view {
+            font-family: 'Courier New', monospace;
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .tree-node {
+            margin-left: 1rem;
+            padding: 0.25rem 0;
+        }
+        
+        .tree-key {
+            color: #2b6cb0;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .tree-key:hover {
+            background: #e6fffa;
+            padding: 0.25rem;
+            border-radius: 4px;
+        }
+        
+        .tree-value {
+            color: #2d3748;
+            margin-left: 1rem;
+        }
+        
+        .tree-string {
+            color: #38a169;
+        }
+        
+        .tree-number {
+            color: #d69e2e;
+        }
+        
+        .tree-boolean {
+            color: #805ad5;
+        }
+        
+        .expandable::before {
+            content: "▶ ";
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+        
+        .expandable.expanded::before {
+            transform: rotate(90deg);
+        }
+        
+        .collapsed {
+            display: none;
+        }
+        
+        .edit-form {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        .edit-form.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .floating-actions {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .floating-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .config-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            input, select, button {
+                width: 100%;
+            }
+            
+            .floating-actions {
+                bottom: 1rem;
+                right: 1rem;
+            }
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔥 Firebase Database Admin Portal</h1>
+        <p>Manage your Firebase Realtime Database with full CRUD operations</p>
+    </div>
+
+    <div class="container">
+        <div class="config-panel">
+            <h2>🔧 Firebase Configuration</h2>
+            <div class="config-row">
+                <input type="text" id="databaseUrl" placeholder="Database URL (e.g., https://your-app.firebaseio.com)" style="flex: 1; min-width: 300px;">
+                <input type="text" id="apiKey" placeholder="API Key" style="flex: 1; min-width: 200px;">
+            </div>
+            <div class="config-row">
+                <button onclick="connectToFirebase()">🔗 Connect to Firebase</button>
+                <button class="btn-secondary" onclick="loadSampleData()">📁 Load Sample Data</button>
+                <button class="btn-danger" onclick="clearData()">🗑️ Clear All Data</button>
+            </div>
+            <div id="connectionStatus"></div>
+        </div>
+
+        <div class="data-section">
+            <h2>📊 Database Explorer</h2>
+            <div class="config-row">
+                <input type="text" id="pathInput" placeholder="Enter path (e.g., classes/teacherId/className)" style="flex: 1;">
+                <button onclick="loadData()">📖 Load Data</button>
+                <button class="btn-secondary" onclick="addNewData()">➕ Add New</button>
+                <button onclick="exportData()">💾 Export JSON</button>
+            </div>
+            
+            <div id="dataDisplay" class="tree-view">
+                <div style="color: #718096; text-align: center; padding: 2rem;">
+                    👆 Connect to Firebase and load data to get started
+                </div>
+            </div>
+            
+            <div id="editForm" class="edit-form">
+                <h3>Edit Data</h3>
+                <div class="form-group">
+                    <label for="editPath">Path:</label>
+                    <input type="text" id="editPath" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="editKey">Key:</label>
+                    <input type="text" id="editKey">
+                </div>
+                <div class="form-group">
+                    <label for="editValue">Value:</label>
+                    <textarea id="editValue" placeholder="Enter JSON value or simple text/number"></textarea>
+                </div>
+                <div class="config-row">
+                    <button onclick="saveEdit()">💾 Save Changes</button>
+                    <button class="btn-danger" onclick="deleteItem()">🗑️ Delete</button>
+                    <button onclick="cancelEdit()">❌ Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="floating-actions">
+        <button class="floating-btn btn-secondary" onclick="refreshData()" title="Refresh Data">
+            🔄
+        </button>
+        <button class="floating-btn" onclick="scrollToTop()" title="Scroll to Top">
+            ⬆️
+        </button>
+    </div>
+
+    <!-- Modal for confirmations -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Confirm Action</h3>
+            <p id="modalMessage">Are you sure you want to perform this action?</p>
+            <div class="config-row" style="margin-top: 2rem;">
+                <button id="confirmBtn" onclick="confirmAction()">✅ Confirm</button>
+                <button onclick="closeModal()">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+        import { getDatabase, ref, set, get, remove, push, onValue, off } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+        let app = null;
+        let database = null;
+        let currentData = null;
+        let currentPath = '';
+        let pendingAction = null;
+
+        // Sample data from the uploaded JSON
+        const sampleData = {
+            "classes": {
+                "BpOq66yL3jYMD7ux5aje99T5i722": {
+                    "CSBB311": {
+                        "attendance": {
+                            "2025-09-03": {
+                                "1756875391846": {
+                                    "0ZkZ6AfP1DhyCQaSsBEvFcYRp7m2": "Present",
+                                    "0pGj9JkJiCfm56Bt1UBsZY0MZop2": "Present",
+                                    "teacherLat": 28.8114435,
+                                    "teacherLon": 77.1328379,
+                                    "initialized": true
+                                }
+                            }
+                        },
+                        "createdBy": "BpOq66yL3jYMD7ux5aje99T5i722",
+                        "department": "CSE1",
+                        "joinedStudents": {
+                            "0ZkZ6AfP1DhyCQaSsBEvFcYRp7m2": {
+                                "email": "231210062@nitdelhi.ac.in",
+                                "name": "Kumar Priyam"
+                            },
+                            "0pGj9JkJiCfm56Bt1UBsZY0MZop2": {
+                                "email": "231210022@nitdelhi.ac.in",
+                                "name": "Anurag Kumar"
+                            }
+                        },
+                        "password": "12345",
+                        "portalOpen": false,
+                        "subjectName": "Machine Learning",
+                        "teacherName": "Dr. Gautam Kumar"
+                    }
+                }
+            }
+        };
+
+        window.connectToFirebase = function() {
+            const databaseUrl = document.getElementById('databaseUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!databaseUrl || !apiKey) {
+                showStatus('Please enter both Database URL and API Key', 'error');
+                return;
+            }
+
+            try {
+                const firebaseConfig = {
+                    databaseURL: databaseUrl,
+                    apiKey: apiKey
+                };
+
+                app = initializeApp(firebaseConfig);
+                database = getDatabase(app);
+                
+                // Test connection
+                const testRef = ref(database, '/');
+                get(testRef).then((snapshot) => {
+                    showStatus('Successfully connected to Firebase! 🎉', 'success');
+                    loadData();
+                }).catch((error) => {
+                    showStatus(`Connection failed: ${error.message}`, 'error');
+                    console.error('Connection error:', error);
+                });
+
+            } catch (error) {
+                showStatus(`Configuration error: ${error.message}`, 'error');
+                console.error('Config error:', error);
+            }
+        };
+
+        window.loadSampleData = function() {
+            if (!database) {
+                showStatus('Please connect to Firebase first', 'error');
+                return;
+            }
+
+            showConfirm(
+                'Load Sample Data',
+                'This will add sample data to your database. Continue?',
+                () => {
+                    const rootRef = ref(database, '/');
+                    set(rootRef, sampleData).then(() => {
+                        showStatus('Sample data loaded successfully! 📁', 'success');
+                        loadData();
+                    }).catch((error) => {
+                        showStatus(`Failed to load sample data: ${error.message}`, 'error');
+                        console.error('Load error:', error);
+                    });
+                }
+            );
+        };
+
+        window.clearData = function() {
+            if (!database) {
+                showStatus('Please connect to Firebase first', 'error');
+                return;
+            }
+
+            showConfirm(
+                'Clear All Data',
+                '⚠️ This will permanently delete ALL data in your database. This action cannot be undone!',
+                () => {
+                    const rootRef = ref(database, '/');
+                    set(rootRef, null).then(() => {
+                        showStatus('All data cleared successfully', 'success');
+                        currentData = null;
+                        displayData(null);
+                    }).catch((error) => {
+                        showStatus(`Failed to clear data: ${error.message}`, 'error');
+                        console.error('Clear error:', error);
+                    });
+                }
+            );
+        };
+
+        window.loadData = function() {
+            if (!database) {
+                showStatus('Please connect to Firebase first', 'error');
+                return;
+            }
+
+            const path = document.getElementById('pathInput').value.trim() || '/';
+            currentPath = path;
+
+            const dataRef = ref(database, path);
+            
+            showStatus('Loading data...', 'info');
+
+            get(dataRef).then((snapshot) => {
+                const data = snapshot.val();
+                currentData = data;
+                displayData(data, path);
+                if (data) {
+                    showStatus(`Data loaded successfully from: ${path}`, 'success');
+                } else {
+                    showStatus(`No data found at: ${path}`, 'info');
+                }
+            }).catch((error) => {
+                showStatus(`Failed to load data: ${error.message}`, 'error');
+                console.error('Load error:', error);
+            });
+        };
+
+        window.refreshData = function() {
+            loadData();
+        };
+
+        window.addNewData = function() {
+            document.getElementById('editPath').value = currentPath;
+            document.getElementById('editKey').value = '';
+            document.getElementById('editValue').value = '';
+            document.getElementById('editForm').classList.add('active');
+            document.getElementById('editKey').focus();
+        };
+
+        window.saveEdit = function() {
+            if (!database) {
+                showStatus('Please connect to Firebase first', 'error');
+                return;
+            }
+
+            const path = document.getElementById('editPath').value;
+            const key = document.getElementById('editKey').value.trim();
+            const valueText = document.getElementById('editValue').value.trim();
+
+            if (!key) {
+                showStatus('Please enter a key', 'error');
+                return;
+            }
+
+            let value;
+            try {
+                // Try to parse as JSON first
+                value = JSON.parse(valueText);
+            } catch {
+                // If not JSON, treat as string, number, or boolean
+                if (valueText.toLowerCase() === 'true') value = true;
+                else if (valueText.toLowerCase() === 'false') value = false;
+                else if (!isNaN(valueText) && !isNaN(parseFloat(valueText))) value = parseFloat(valueText);
+                else value = valueText;
+            }
+
+            const fullPath = path === '/' ? key : `${path}/${key}`;
+            const dataRef = ref(database, fullPath);
+
+            set(dataRef, value).then(() => {
+                showStatus(`Data saved successfully at: ${fullPath}`, 'success');
+                cancelEdit();
+                loadData();
+            }).catch((error) => {
+                showStatus(`Failed to save data: ${error.message}`, 'error');
+                console.error('Save error:', error);
+            });
+        };
+
+        window.deleteItem = function() {
+            const path = document.getElementById('editPath').value;
+            const key = document.getElementById('editKey').value.trim();
+            
+            if (!key) {
+                showStatus('Please enter a key to delete', 'error');
+                return;
+            }
+
+            const fullPath = path === '/' ? key : `${path}/${key}`;
+            
+            showConfirm(
+                'Delete Item',
+                `Are you sure you want to delete: ${fullPath}?`,
+                () => {
+                    const dataRef = ref(database, fullPath);
+                    remove(dataRef).then(() => {
+                        showStatus(`Item deleted successfully: ${fullPath}`, 'success');
+                        cancelEdit();
+                        loadData();
+                    }).catch((error) => {
+                        showStatus(`Failed to delete item: ${error.message}`, 'error');
+                        console.error('Delete error:', error);
+                    });
+                }
+            );
+        };
+
+        window.cancelEdit = function() {
+            document.getElementById('editForm').classList.remove('active');
+        };
+
+        window.exportData = function() {
+            if (!currentData) {
+                showStatus('No data to export', 'error');
+                return;
+            }
+
+            const dataStr = JSON.stringify(currentData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `firebase_export_${Date.now()}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showStatus('Data exported successfully! 💾', 'success');
+        };
+
+        window.scrollToTop = function() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        function displayData(data, path = '') {
+            const container = document.getElementById('dataDisplay');
+            
+            if (!data) {
+                container.innerHTML = `
+                    <div style="color: #718096; text-align: center; padding: 2rem;">
+                        📭 No data found${path ? ` at path: ${path}` : ''}
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = createTreeView(data, '', path);
+            attachTreeEvents();
+        }
+
+        function createTreeView(obj, prefix = '', basePath = '') {
+            if (obj === null || obj === undefined) {
+                return `<span class="tree-value tree-null">null</span>`;
+            }
+
+            if (typeof obj !== 'object') {
+                const className = typeof obj === 'string' ? 'tree-string' : 
+                                typeof obj === 'number' ? 'tree-number' : 'tree-boolean';
+                return `<span class="tree-value ${className}">${JSON.stringify(obj)}</span>`;
+            }
+
+            const isArray = Array.isArray(obj);
+            let html = isArray ? '[\n' : '{\n';
+
+            const entries = Object.entries(obj);
+            entries.forEach(([key, value], index) => {
+                const isLast = index === entries.length - 1;
+                const currentPath = basePath ? `${basePath}/${key}` : key;
+                
+                html += `<div class="tree-node">`;
+                
+                if (typeof value === 'object' && value !== null) {
+                    html += `<span class="tree-key expandable" data-path="${currentPath}" onclick="editItem('${currentPath}', '${key}')">${isArray ? '' : `"${key}": `}</span>`;
+                    html += `<div class="tree-children">`;
+                    html += createTreeView(value, prefix + '  ', currentPath);
+                    html += `</div>`;
+                } else {
+                    html += `<span class="tree-key" data-path="${currentPath}" onclick="editItem('${currentPath}', '${key}')">${isArray ? '' : `"${key}": `}</span>`;
+                    html += createTreeView(value, prefix, currentPath);
+                }
+                
+                if (!isLast) html += ',';
+                html += '\n</div>';
+            });
+
+            html += isArray ? ']' : '}';
+            return html;
+        }
+
+        function attachTreeEvents() {
+            document.querySelectorAll('.expandable').forEach(element => {
+                element.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    element.classList.toggle('expanded');
+                    const children = element.parentNode.querySelector('.tree-children');
+                    if (children) {
+                        children.classList.toggle('collapsed');
+                    }
+                });
+            });
+        }
+
+        window.editItem = function(path, key) {
+            const fullPath = currentPath === '/' ? '' : currentPath;
+            document.getElementById('editPath').value = fullPath;
+            document.getElementById('editKey').value = key;
+            
+            // Get current value
+            if (currentData) {
+                const pathParts = path.split('/').filter(p => p);
+                let value = currentData;
+                for (const part of pathParts) {
+                    value = value[part];
+                }
+                document.getElementById('editValue').value = JSON.stringify(value, null, 2);
+            }
+            
+            document.getElementById('editForm').classList.add('active');
+        };
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        function showConfirm(title, message, onConfirm) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('confirmModal').classList.add('active');
+            pendingAction = onConfirm;
+        }
+
+        window.confirmAction = function() {
+            if (pendingAction) {
+                pendingAction();
+                pendingAction = null;
+            }
+            closeModal();
+        };
+
+        window.closeModal = function() {
+            document.getElementById('confirmModal').classList.remove('active');
+            pendingAction = null;
+        };
+
+        // Initialize with sample data display
+        displayData(sampleData);
+        showStatus('Sample data loaded for preview. Connect to Firebase to manage your real database.', 'info');
+    </script>
+</body>
+</html>

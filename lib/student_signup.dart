@@ -25,7 +25,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
 
   final List<String> _programs = ['BTech', 'MTech'];
   final List<String> _years = ['1st', '2nd ', '3rd ', '4th'];
-  final List<String> _departments = ['CSE1','CSE2','CE', 'ECE', 'EE', 'ME', 'AE', 'AIDS'];
+  final List<String> _departments = ['CSE1','CSE2','CE', 'ECE', 'EE', 'ME', 'AE', 'AIDS','M.Tech(CSE&CSA)'];
 
   @override
   void dispose() {

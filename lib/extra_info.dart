@@ -101,12 +101,15 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
           }
         }
 
+        double attendancePercentage = totalSessions > 0 ? (present / totalSessions) * 100 : 0;
+
         students.add({
           "roll": roll,
           "name": name,
           "dailyAttendance": dailyAttendance,
           "totalClasses": totalSessions,
           "classesAttended": present,
+          "percentage": attendancePercentage, // Added percentage to the student data
         });
       }
 
@@ -132,7 +135,6 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
     try {
       PermissionStatus status;
       if (Platform.isAndroid) {
-        // Check for Android 11+ and use MANAGE_EXTERNAL_STORAGE
         if (await Permission.manageExternalStorage.isGranted) {
           status = PermissionStatus.granted;
         } else {
@@ -152,7 +154,7 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
 
       final excel = Excel.createExcel();
       final Sheet sheet = excel['Attendance Register'];
-      sheet.appendRow(["Roll No", "Name", ..._attendanceDates, "Total Classes", "Attended"]);
+      sheet.appendRow(["Roll No", "Name", ..._attendanceDates, "Total Classes", "Attended", "Percentage"]);
 
       for (var student in _students) {
         List<String> row = [student['roll'], student['name']];
@@ -161,6 +163,7 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
         }
         row.add(student['totalClasses'].toString());
         row.add(student['classesAttended'].toString());
+        row.add("${student['percentage']!.toStringAsFixed(1)}%"); // Add the percentage
         sheet.appendRow(row);
       }
 
@@ -271,6 +274,7 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
             ..._attendanceDates.map((date) => DataColumn(label: Text(date, style: const TextStyle(fontWeight: FontWeight.bold)))),
             const DataColumn(label: Text("Total Classes", style: TextStyle(fontWeight: FontWeight.bold))),
             const DataColumn(label: Text("Attended", style: TextStyle(fontWeight: FontWeight.bold))),
+            const DataColumn(label: Text("Percentage", style: TextStyle(fontWeight: FontWeight.bold))),
           ],
           rows: _students.map((student) {
             return DataRow(cells: [
@@ -279,6 +283,7 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
               ..._attendanceDates.map((date) => DataCell(Text(student["dailyAttendance"][date] ?? "-"))),
               DataCell(Text(student["totalClasses"].toString())),
               DataCell(Text(student["classesAttended"].toString())),
+              DataCell(Text("${student['percentage']!.toStringAsFixed(1)}%")),
             ]);
           }).toList(),
         ),

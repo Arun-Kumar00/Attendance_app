@@ -16,7 +16,7 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
   final _classIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _subjectNameController = TextEditingController();
-  final List<String> _departments = ['CSE1','CSE2', 'ECE', 'EE', 'ME', 'AE', 'AIDS','CE'];
+  final List<String> _departments = ['CSE1','CSE2', 'ECE', 'EE', 'ME', 'AE', 'AIDS','CE','M.Tech(CSE&CSA)'];
   String? _selectedDepartment = 'CSE1';
   bool _isLoading = false;
   bool _isPasswordVisible = false;

@@ -27,6 +27,8 @@ class _TeacherPortalScreenState extends State<TeacherPortalScreen> {
   int _sessionDurationInSeconds = 0;
   DateTime? _sessionStartTime;
   StreamSubscription? _sessionStatusSubscription;
+  StreamSubscription? _attendanceCountSubscription;
+  int _presentStudentCount = 0;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _TeacherPortalScreenState extends State<TeacherPortalScreen> {
   void dispose() {
     _sessionTimer?.cancel();
     _sessionStatusSubscription?.cancel();
+    _attendanceCountSubscription?.cancel();
     super.dispose();
   }
 
@@ -101,8 +104,30 @@ class _TeacherPortalScreenState extends State<TeacherPortalScreen> {
       if (isOpen && startTimeMillis != null) {
         _sessionStartTime = DateTime.fromMillisecondsSinceEpoch(startTimeMillis);
         _startTimer();
+        _listenToAttendanceCount(sessionId!);
       } else {
         _stopTimer();
+        _attendanceCountSubscription?.cancel();
+        if (!mounted) return;
+        setState(() {
+          _presentStudentCount = 0;
+        });
+      }
+    });
+  }
+
+  void _listenToAttendanceCount(String sessionId) {
+    _attendanceCountSubscription?.cancel();
+    final currentDate = DateTime.now().toIso8601String().split('T').first;
+    final ref = FirebaseDatabase.instance.ref('classes/${widget.teacherUid}/${widget.classId}/attendance/$currentDate/$sessionId');
+    _attendanceCountSubscription = ref.onValue.listen((event) {
+      if (!mounted) return;
+      final data = event.snapshot.value as Map<dynamic, dynamic>?;
+      if (data != null) {
+        final count = data.values.where((status) => status == 'Present').length;
+        setState(() {
+          _presentStudentCount = count;
+        });
       }
     });
   }
@@ -284,9 +309,23 @@ class _TeacherPortalScreenState extends State<TeacherPortalScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-
+              Align(
+                alignment: Alignment.center,
+                child: Image.asset(
+                  'assets/koala.png',
+                  height: 100,
+                ),
+              ),
               const SizedBox(height: 24),
-
+              Text(
+                "Welcome to your portal, teacher!",
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF3C3E52),
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 24),
               Card(
                 elevation: 4,
