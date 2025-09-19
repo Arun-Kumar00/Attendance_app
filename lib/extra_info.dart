@@ -153,6 +153,7 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
       }
 
       final excel = Excel.createExcel();
+      excel.delete('Sheet1');
       final Sheet sheet = excel['Attendance Register'];
       sheet.appendRow(["Roll No", "Name", ..._attendanceDates, "Total Classes", "Attended", "Percentage"]);
 
@@ -166,6 +167,7 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
         row.add("${student['percentage']!.toStringAsFixed(1)}%"); // Add the percentage
         sheet.appendRow(row);
       }
+     
 
       final directory = await getExternalStorageDirectory();
       final path = '${directory!.path}/Attendance_${widget.classId}.xlsx';
@@ -264,6 +266,8 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
       )
           : SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
         child: DataTable(
           columnSpacing: 10.0,
           horizontalMargin: 16.0,
@@ -286,6 +290,7 @@ class _ExtraInfoPageState extends State<ExtraInfoPage> {
               DataCell(Text("${student['percentage']!.toStringAsFixed(1)}%")),
             ]);
           }).toList(),
+        ),
         ),
       ),
     );

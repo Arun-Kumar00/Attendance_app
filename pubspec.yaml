@@ -53,6 +53,7 @@ dependencies:
   geolocator: ^12.0.0
   local_auth: ^2.2.0
   device_info_plus: ^10.0.0
+  image_picker: ^1.0.4
 
   local_auth_android: ^1.0.35
   local_auth_ios: ^1.0.17

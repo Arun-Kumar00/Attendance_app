@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'more_info.dart';
+import 'dart:async';
 
 class ViewClassesScreen extends StatefulWidget {
   const ViewClassesScreen({super.key});
@@ -12,9 +13,10 @@ class ViewClassesScreen extends StatefulWidget {
 }
 
 class _ViewClassesScreenState extends State<ViewClassesScreen> {
-  List<Map<String, String>> _classes = [];
+  List<Map<String, dynamic>> _classes = [];
   bool _isLoading = true;
   String? _teacherUid;
+  StreamSubscription? _classesSubscription;
 
   @override
   void initState() {
@@ -22,54 +24,53 @@ class _ViewClassesScreenState extends State<ViewClassesScreen> {
     _fetchClasses();
   }
 
+  @override
+  void dispose() {
+    _classesSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _fetchClasses() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
-
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception("User not logged in.");
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
+      return;
+    }
 
-      _teacherUid = user.uid;
+    _teacherUid = user.uid;
+    final DatabaseReference userClassesRef = FirebaseDatabase.instance.ref('classes/${user.uid}');
 
-      final DatabaseReference userClassesRef = FirebaseDatabase.instance.ref('classes/${user.uid}');
-      final snapshot = await userClassesRef.once();
-      final data = snapshot.snapshot.value as Map<dynamic, dynamic>?;
+    _classesSubscription = userClassesRef.onValue.listen((event) async {
+      if (!mounted) return;
+      final data = event.snapshot.value as Map<dynamic, dynamic>?;
 
       if (data != null) {
-        List<Map<String, String>> loadedClasses = [];
-
-        data.forEach((classId, classData) {
-          final classInfo = Map<String, dynamic>.from(classData);
+        List<Map<String, dynamic>> loadedClasses = [];
+        for (var classId in data.keys) {
+          final classData = Map<String, dynamic>.from(data[classId]);
+          int studentCount = (classData['joinedStudents'] as Map?)?.length ?? 0;
           loadedClasses.add({
             'classId': classId,
-            'department': classInfo['department'] ?? '',
-            'password': classInfo['password'] ?? '',
-            'subjectName': classInfo['subjectName'] ?? '',
-            'teacherName': classInfo['teacherName'] ?? '',
+            'department': classData['department'] ?? '',
+            'password': classData['password'] ?? '',
+            'subjectName': classData['subjectName'] ?? '',
+            'teacherName': classData['teacherName'] ?? '',
+            'studentCount': studentCount,
           });
-        });
-
-        if (!mounted) return;
+        }
         setState(() {
           _classes = loadedClasses;
           _isLoading = false;
         });
       } else {
-        if (!mounted) return;
         setState(() {
           _classes = [];
           _isLoading = false;
         });
       }
-    } catch (error) {
-      print("Error fetching classes: $error");
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+    });
   }
 
   void _showDeleteConfirmation(String classId) {
@@ -99,7 +100,7 @@ class _ViewClassesScreenState extends State<ViewClassesScreen> {
               _deleteClass(classId);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red.shade700,
               foregroundColor: Colors.white,
             ),
             child: Text(
@@ -123,10 +124,6 @@ class _ViewClassesScreenState extends State<ViewClassesScreen> {
       await classRef.remove();
 
       if (!mounted) return;
-      setState(() {
-        _classes.removeWhere((cls) => cls['classId'] == classId);
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -228,6 +225,7 @@ class _ViewClassesScreenState extends State<ViewClassesScreen> {
                   _buildInfoRow(context, Icons.fingerprint, "Class ID:", classData['classId']!),
                   _buildInfoRow(context, Icons.lock, "Password:", classData['password']!),
                   _buildInfoRow(context, Icons.person, "Teacher:", classData['teacherName']!),
+                  _buildInfoRow(context, Icons.group, "Students:", classData['studentCount'].toString()),
                   _buildInfoRow(context, Icons.business, "Department:", classData['department']!),
                   const SizedBox(height: 20),
                   Row(
