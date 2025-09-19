@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:vidhar/otp_verification_screen.dart';
 
 class TeacherSignupScreen extends StatefulWidget {
   @override
@@ -18,6 +20,8 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  final List<String> _genders = ['Male', 'Female', 'Other'];
+  String? _selectedGender;
 
   @override
   void dispose() {
@@ -61,14 +65,25 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
         'email': email,
         'role': 'teacher',
         'uid': userId,
+        'gender': _selectedGender,
       });
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('role', 'teacher');
+      // Send verification email
+      await userCredential.user!.sendEmailVerification();
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/login');
+      // Navigate to OTP verification screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtpVerificationScreen(
+            user: userCredential.user!,
+            role: 'teacher',
+          ),
+        ),
+      );
+
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       if (e.code == 'weak-password') {
@@ -133,16 +148,6 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 20.0),
-                      child: Image.asset(
-                        'assets/logo.png',
-                        height: 100,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
                   Text(
                     'Create Teacher Account',
                     textAlign: TextAlign.center,
@@ -179,6 +184,27 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter your name';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            DropdownButtonFormField<String>(
+                              value: _selectedGender,
+                              items: _genders
+                                  .map((gender) => DropdownMenuItem(value: gender, child: Text(gender)))
+                                  .toList(),
+                              onChanged: (value) => setState(() => _selectedGender = value!),
+                              decoration: InputDecoration(
+                                labelText: 'Gender',
+                                prefixIcon: const Icon(Icons.transgender, color: Color(0xFF3C3E52)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please select your gender';
                                 }
                                 return null;
                               },
@@ -271,44 +297,45 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 30),
-                            ElevatedButton(
-                              onPressed: _isLoading ? null : _signUp,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF3C3E52),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 18),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                elevation: 5,
-                              ),
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                transitionBuilder: (Widget child, Animation<double> animation) {
-                                  return FadeTransition(opacity: animation, child: child);
-                                },
-                                child: _isLoading
-                                    ? const SizedBox(
-                                  key: ValueKey('loading'),
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                                    : Text(
-                                  'Sign Up',
-                                  key: const ValueKey('signup'),
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
+
                           ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _signUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3C3E52),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 24,horizontal: 60),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 5,
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (Widget child, Animation<double> animation) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                      child: _isLoading
+                          ? const SizedBox(
+                        key: ValueKey('loading'),
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                          : Text(
+                        'Sign Up',
+                        key: const ValueKey('signup'),
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),

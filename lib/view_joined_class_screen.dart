@@ -180,8 +180,6 @@ class _ViewJoinedClassesScreenState extends State<ViewJoinedClassesScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/logo.png', height: 150),
-              const SizedBox(height: 20),
               Text(
                 "You have not joined any classes yet.",
                 style: GoogleFonts.poppins(

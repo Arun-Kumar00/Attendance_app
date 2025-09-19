@@ -36,7 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   firebase_auth: ^5.5.2
   firebase_database: ^11.3.5
-  firebase_core: ^3.13.0   # Compatible with firebase_database
+  firebase_core: ^3.13.0
+  firebase_app_check: ^0.3.2+10 # Compatible with firebase_database
   cloud_firestore: ^5.6.6
   permission_handler: ^11.3.1
   fluttertoast: ^8.2.4
@@ -51,6 +52,7 @@ dependencies:
   shared_preferences: ^2.2.2
   geolocator: ^12.0.0
   local_auth: ^2.2.0
+  device_info_plus: ^10.0.0
 
   local_auth_android: ^1.0.35
   local_auth_ios: ^1.0.17
@@ -84,6 +86,8 @@ flutter:
      - assets/Screenshot_2025-08-31_at_15.47.46-removebg-preview.png
      - assets/Gemini_Generated_Image_qbrhfwqbrhfwqbrh.png
      - assets/Gemini_Generated_Image_sct87jsct87jsct8-removebg-preview.png
+     - assets/Nitd.png
+     - assets/Nit.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

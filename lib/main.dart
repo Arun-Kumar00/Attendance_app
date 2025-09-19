@@ -8,6 +8,9 @@ import 'package:vidhar/Student_dashboard.dart';
 import 'package:vidhar/teacher_dashboard.dart';
 import 'package:vidhar/view_class_screen.dart';
 import 'package:vidhar/view_joined_class_screen.dart';
+import 'package:vidhar/student_profile_screen.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:vidhar/teacher_profile_screen.dart';
 
 
 import 'Login_screen.dart';
@@ -18,6 +21,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await FirebaseAppCheck.instance.activate(
+    // Set the provider for the platform
+    androidProvider: AndroidProvider.playIntegrity,
+    appleProvider: AppleProvider.appAttest,
   );
   runApp(MyApp());
 }
@@ -41,6 +49,8 @@ class MyApp extends StatelessWidget {
         '/viewClasses': (context) => ViewClassesScreen(),
         '/viewJoinedClasses': (context) => ViewJoinedClassesScreen(),
         '/joinClass' : (context) => JoinClassScreen(),
+        '/studentProfile' :(context) => const StudentProfileScreen(),
+        '/teacherProfile' :(context) => const TeacherProfileScreen(),
       },
     );
   }

@@ -1,269 +1,897 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Admin Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        body { font-family: 'Poppins', sans-serif; }
+        .tab-btn.active {
+            background-color: #3C3E52;
+            color: white;
+        }
+    </style>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+        import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+
+        // Your Firebase project configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCbSGtIkm3ZXr4yxeb0G6seRJBHiclrC3E",
+            authDomain: "vidhar-27086.firebaseapp.com",
+            databaseURL: "https://vidhar-27086-default-rtdb.firebaseio.com",
+            projectId: "vidhar-27086",
+            storageBucket: "vidhar-27086.firebasestorage.app",
+            messagingSenderId: "720908804489",
+            appId: "1:720908804489:web:234a26af1442c965db0158",
+            measurementId: "G-K0ZZZ51SFK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+        
+        // Hardcoded admin email for full access
+        const adminEmail = "arungoyal706@gmail.com";
+        let isEditMode = false;
+        let currentUserUid = null;
+
+        const loginModal = document.getElementById('login-modal');
+        const loginForm = document.getElementById('login-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const errorMessage = document.getElementById('error-message');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const editModeIndicator = document.getElementById('edit-mode-indicator');
+        const mainContent = document.getElementById('main-content');
+        const classesContainer = document.getElementById('classes-container');
+        const studentsContainer = document.getElementById('students-container');
+        const teachersContainer = document.getElementById('teachers-container');
+        const dashboardContainer = document.getElementById('dashboard-container');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const headerTitle = document.getElementById('header-title');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => b.classList.remove('bg-[#3C3E52]', 'text-white'));
+                tabBtns.forEach(b => b.classList.add('bg-gray-200', 'text-gray-700'));
+                btn.classList.add('bg-[#3C3E52]', 'text-white');
+                btn.classList.remove('bg-gray-200', 'text-gray-700');
+                
+                tabContents.forEach(content => content.classList.add('hidden'));
+                document.getElementById(btn.dataset.tab + '-content').classList.remove('hidden');
+            });
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserUid = user.uid;
+                if (user.email === adminEmail) {
+                    isEditMode = true;
+                    headerTitle.textContent = 'Admin Dashboard';
+                    editModeIndicator.classList.remove('hidden');
+                    fetchAllData();
+                } else {
+                    isEditMode = false;
+                    headerTitle.textContent = 'Teacher Dashboard';
+                    editModeIndicator.classList.add('hidden');
+                    fetchTeacherData(currentUserUid);
+                }
+                loginBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+                loginModal.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+            } else {
+                isEditMode = false;
+                currentUserUid = null;
+                loginBtn.classList.remove('hidden');
+                logoutBtn.classList.add('hidden');
+                editModeIndicator.classList.add('hidden');
+                headerTitle.textContent = 'Attendance Portal';
+                fetchPublicData();
+                loginModal.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="animate-spin h-5 w-5 mr-3 rounded-full border-2 border-white border-t-transparent"></span>Signing In...';
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                errorMessage.textContent = '';
+                loginModal.classList.add('hidden');
+            } catch (error) {
+                errorMessage.textContent = 'Invalid credentials or access denied.';
+                console.error(error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Sign In';
+            }
+        });
+
+        loginBtn.addEventListener('click', () => {
+            loginModal.classList.remove('hidden');
+        });
+
+        document.getElementById('modal-back-btn').addEventListener('click', () => {
+            loginModal.classList.add('hidden');
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            loginModal.classList.add('hidden');
+        });
+
+        function fetchPublicData() {
+            fetchAttendanceData(false);
+            const tabs = document.getElementById('tabs');
+            tabs.classList.add('hidden');
+        }
+
+        function fetchTeacherData(teacherUid) {
+            const tabs = document.getElementById('tabs');
+            tabs.classList.remove('hidden');
+            document.querySelector('[data-tab="teachers"]').classList.add('hidden');
+            document.querySelector('[data-tab="students"]').classList.add('hidden');
+            fetchDashboardData(teacherUid);
+            fetchAttendanceData(true, teacherUid);
+        }
+
+        function fetchAllData() {
+            const tabs = document.getElementById('tabs');
+            tabs.classList.remove('hidden');
+            document.querySelector('[data-tab="teachers"]').classList.remove('hidden');
+            document.querySelector('[data-tab="students"]').classList.remove('hidden');
+            fetchDashboardData();
+            fetchAttendanceData(true);
+            fetchStudentsData();
+            fetchTeachersData();
+        }
+
+        async function fetchDashboardData(teacherUid = null) {
+            onValue(ref(database, 'users'), (usersSnapshot) => {
+                onValue(ref(database, 'classes'), (classesSnapshot) => {
+                    const users = usersSnapshot.val() || {};
+                    const classes = classesSnapshot.val() || {};
+                    let totalStudents = 0;
+                    let totalTeachers = 0;
+                    let totalClasses = 0;
+                    let myClasses = 0;
+
+                    for (const uid in users) {
+                        if (users[uid].role === 'student') totalStudents++;
+                        if (users[uid].role === 'teacher') totalTeachers++;
+                    }
+
+                    for (const tUid in classes) {
+                        for (const cId in classes[tUid]) {
+                            totalClasses++;
+                            if (tUid === teacherUid) myClasses++;
+                        }
+                    }
+
+                    let dashboardHtml = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-white rounded-lg shadow-md p-6 text-center border-l-4 border-[#3C3E52]">
+                                <p class="text-gray-500 text-sm">Total Classes</p>
+                                <p class="text-3xl font-bold mt-2">${teacherUid ? myClasses : totalClasses}</p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-md p-6 text-center border-l-4 border-gray-400">
+                                <p class="text-gray-500 text-sm">Total Students</p>
+                                <p class="text-3xl font-bold mt-2">${totalStudents}</p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-md p-6 text-center border-l-4 border-blue-500">
+                                <p class="text-gray-500 text-sm">Total Teachers</p>
+                                <p class="text-3xl font-bold mt-2">${totalTeachers}</p>
+                            </div>
+                        </div>
+                    `;
+                    dashboardContainer.innerHTML = dashboardHtml;
+                });
+            });
+        }
+
+        async function fetchAttendanceData(canEdit, teacherUid = null) {
+            const classesRef = ref(database, 'classes');
+            onValue(classesRef, (snapshot) => {
+                const allClassesData = snapshot.val() || {};
+                onValue(ref(database, 'users'), (usersSnapshot) => {
+                    const usersData = usersSnapshot.val() || {};
+                    classesContainer.innerHTML = '';
+                    const classesToDisplay = [];
+                    for (const tUid in allClassesData) {
+                        if (teacherUid && tUid !== teacherUid) continue;
+                        for (const cId in allClassesData[tUid]) {
+                            classesToDisplay.push({ teacherUid: tUid, classId: cId, classInfo: allClassesData[tUid][cId] });
+                        }
+                    }
+                    
+                    classesToDisplay.forEach(classObj => {
+                        const { teacherUid: tUid, classId, classInfo } = classObj;
+                        onValue(ref(database, `classes/${tUid}/${classId}/attendance`), (attendanceSnapshot) => {
+                            const attendanceData = attendanceSnapshot.val() || {};
+                            const attendanceDates = Object.keys(attendanceData).filter(date => date !== 'initialized').sort();
+                            
+                            const tableHeaders = `
+                                <th class="px-4 py-2">Roll No</th>
+                                <th class="px-4 py-2">Name</th>
+                                ${attendanceDates.map(date => `<th class="px-4 py-2 text-center">${date}</th>`).join('')}
+                            `;
+                            
+                            let tableRows = '';
+                            if (classInfo.joinedStudents) {
+                                const studentUids = Object.keys(classInfo.joinedStudents).sort((a, b) => {
+                                    const rollA = usersData[a]?.rollNumber || 'Z';
+                                    const rollB = usersData[b]?.rollNumber || 'Z';
+                                    return rollA.localeCompare(rollB);
+                                });
+                                studentUids.forEach(studentUid => {
+                                    const studentInfo = usersData[studentUid] || {};
+                                    const studentName = studentInfo.name || 'Unknown';
+                                    const rollNumber = studentInfo.rollNumber || 'N/A';
+                                    const attendanceCells = attendanceDates.map(date => {
+                                        let status = 'N/A';
+                                        let attendanceKey = '';
+                                        for (const sessionId in attendanceData[date]) {
+                                            if (sessionId !== 'initialized' && attendanceData[date][sessionId][studentUid]) {
+                                                status = attendanceData[date][sessionId][studentUid];
+                                                attendanceKey = `${date}/${sessionId}`;
+                                                break;
+                                            }
+                                        }
+                                        const statusColor = status === 'Present' ? 'text-green-500' : (status === 'Absent' ? 'text-red-500' : 'text-gray-400');
+                                        const statusText = status === 'Present' ? 'P' : (status === 'Absent' ? 'A' : '-');
+                                        if (canEdit && (status === 'Present' || status === 'Absent')) {
+                                            return `<td class="px-4 py-2 text-center"><span class="font-bold cursor-pointer ${statusColor} hover:bg-gray-100 px-2 py-1 rounded" onclick="updateAttendance('${tUid}', '${classId}', '${studentUid}', '${attendanceKey}', '${status}')" title="Click to toggle attendance">${statusText}</span></td>`;
+                                        } else {
+                                            return `<td class="px-4 py-2 text-center"><span class="font-bold ${statusColor}">${statusText}</span></td>`;
+                                        }
+                                    }).join('');
+                                    tableRows += `<tr class="border-b border-gray-200 hover:bg-gray-50"><td class="px-4 py-2 font-medium">${rollNumber}</td><td class="px-4 py-2">${studentName}</td>${attendanceCells}</tr>`;
+                                });
+                            }
+                            const classHtml = `
+                                <div class="bg-white rounded-lg shadow-lg p-6 mb-4 border border-gray-200">
+                                    <div class="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors duration-200" onclick="toggleExpansion(this)">
+                                        <h3 class="text-xl font-bold text-gray-800">${classInfo.subjectName}</h3>
+                                        <div class="flex items-center space-x-4 text-gray-500 text-sm">
+                                            <span>Teacher: ${classInfo.teacherName}</span>
+                                            <span>Branch: ${classInfo.department}</span>
+                                            <span>Year: ${classInfo.year}</span>
+                                        </div>
+                                    </div>
+                                    <div class="class-details mt-4 hidden">
+                                        ${isEditMode ? `<div class="flex justify-end space-x-2"><button onclick="deleteClass('${tUid}', '${classId}')" class="text-red-500 hover:bg-red-100 px-3 py-1 rounded-md">Delete Class</button></div>` : ''}
+                                        <div class="overflow-x-auto"><table class="min-w-full bg-white border-collapse border border-gray-300"><thead><tr class="bg-gray-100 border-b border-gray-300 text-left text-sm text-gray-600 uppercase">${tableHeaders}</tr></thead><tbody>${tableRows}</tbody></table></div>
+                                    </div>
+                                </div>
+                            `;
+                            container.insertAdjacentHTML('beforeend', classHtml);
+                        });
+                    });
+                });
+            });
+        }
+        
+        async function fetchStudentsData() {
+            fetchData('users', studentsContainer, (usersData, container) => {
+                const students = Object.values(usersData).filter(user => user.role === 'student');
+                const studentsByGroup = {};
+                students.forEach(student => {
+                    const groupKey = `${student.department || 'N/A'}_${student.year || 'N/A'}`;
+                    if (!studentsByGroup[groupKey]) studentsByGroup[groupKey] = [];
+                    studentsByGroup[groupKey].push(student);
+                });
+
+                container.innerHTML = '';
+                for (const groupKey in studentsByGroup) {
+                    const groupStudents = studentsByGroup[groupKey].sort((a, b) => a.rollNumber.localeCompare(b.rollNumber));
+                    const [department, year] = groupKey.split('_');
+
+                    let studentRowsHtml = '';
+                    groupStudents.forEach(student => {
+                        studentRowsHtml += `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${student.uid}" data-field="rollNumber">${student.rollNumber || 'N/A'}</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${student.uid}" data-field="name">${student.name || 'N/A'}</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${student.uid}" data-field="email">${student.email || 'N/A'}</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${student.uid}" data-field="program">${student.program || 'N/A'}</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${student.uid}" data-field="year">${student.year || 'N/A'}</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${student.uid}" data-field="department">${student.department || 'N/A'}</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <button onclick="deleteUser('${student.uid}')" class="text-red-500 hover:bg-red-100 px-3 py-1 rounded-md">Delete</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    const groupHtml = `
+                        <div class="bg-white rounded-lg shadow-lg p-6 mb-4 border border-gray-200">
+                            <div class="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors duration-200" onclick="toggleExpansion(this)">
+                                <h3 class="text-xl font-bold text-gray-800">
+                                    ${department} - ${year} (${groupStudents.length} Students)
+                                </h3>
+                                <svg class="h-5 w-5 transform transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                            <div class="class-details mt-4 hidden">
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll Number</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            ${studentRowsHtml}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', groupHtml);
+                }
+            }, 'No students found.');
+        }
+
+        async function fetchTeachersData() {
+            fetchData('users', teachersContainer, (usersData, container) => {
+                const teachers = Object.values(usersData).filter(user => user.role === 'teacher');
+                
+                let teachersHtml = '';
+                teachers.forEach(teacher => {
+                    teachersHtml += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" 
+                                        onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${teacher.uid}" data-field="name">${teacher.name || 'N/A'}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="${isEditMode ? 'editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded' : 'text-sm text-gray-900'}" 
+                                        onclick="${isEditMode ? `makeEditable(this)` : ''}" data-uid="${teacher.uid}" data-field="email">${teacher.email || 'N/A'}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">${teacher.uid}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <button onclick="deleteUser('${teacher.uid}')" class="text-red-500 hover:bg-red-100 px-3 py-1 rounded-md">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${teachersHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }, 'No teachers found.');
+        }
+
+        window.makeEditable = function(element) {
+            if (!isEditMode) return;
+            const originalValue = element.textContent.trim();
+            const uid = element.dataset.uid;
+            const field = element.dataset.field;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = originalValue === 'N/A' ? '' : originalValue;
+            input.className = 'px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveChanges(); } else if (e.key === 'Escape') { revertChanges(); } });
+            input.addEventListener('blur', saveChanges);
+            element.replaceWith(input);
+            input.focus();
+            input.select();
+
+            const saveChanges = async () => {
+                const newValue = input.value.trim();
+                if (newValue !== originalValue && newValue !== '') {
+                    try {
+                        await set(ref(database, `users/${uid}/${field}`), newValue);
+                        showNotification(`Updated ${field} successfully!`, 'success');
+                    } catch (error) {
+                        console.error('Error updating field:', error);
+                        showNotification(`Failed to update ${field}`, 'error');
+                    }
+                }
+                revertChanges(newValue || originalValue);
+            };
+
+            const revertChanges = (value = originalValue) => {
+                const newSpan = document.createElement('span');
+                newSpan.className = `editable-field cursor-pointer hover:bg-blue-50 px-2 py-1 rounded`;
+                newSpan.setAttribute('data-uid', uid);
+                newSpan.setAttribute('data-field', field);
+                newSpan.setAttribute('onclick', 'makeEditable(this)');
+                newSpan.textContent = value || 'N/A';
+                input.replaceWith(newSpan);
+            };
+        };
+
+        window.toggleExpansion = (element) => {
+            const details = element.nextElementSibling;
+            const arrow = element.querySelector('svg');
+            details.classList.toggle('hidden');
+            if (arrow) {
+                arrow.classList.toggle('rotate-180');
+            }
+        };
+
+        window.updateAttendance = async (teacherUid, classId, studentUid, attendanceKey, currentStatus) => {
+            if (!isEditMode) return;
+            const newStatus = currentStatus === 'Present' ? 'Absent' : 'Present';
+            if (confirm(`Change attendance for this student to "${newStatus}"?`)) {
+                try {
+                    await set(ref(database, `classes/${teacherUid}/${classId}/attendance/${attendanceKey}/${studentUid}`), newStatus);
+                    showNotification(`Attendance updated to "${newStatus}"!`, 'success');
+                } catch (error) {
+                    console.error('Error updating attendance:', error);
+                    showNotification('Failed to update attendance.', 'error');
+                }
+            }
+        };
+
+        window.deleteClass = async (teacherUid, classId) => {
+            if (confirm(`Are you sure you want to delete class ${classId}? This action cannot be undone.`)) {
+                try {
+                    await remove(ref(database, `classes/${teacherUid}/${classId}`));
+                    showNotification(`Class ${classId} deleted successfully!`, 'success');
+                } catch (error) {
+                    console.error('Error deleting class:', error);
+                    showNotification('Failed to delete class. Please try again.', 'error');
+                }
+            }
+        };
+
+        window.deleteUser = async (uid) => {
+            if (confirm(`Are you sure you want to delete this user (UID: ${uid})? This action cannot be undone.`)) {
+                try {
+                    await remove(ref(database, `users/${uid}`));
+                    showNotification(`User ${uid} deleted successfully!`, 'success');
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                    showNotification('Failed to delete user. Please try again.', 'error');
+                }
+            }
+        };
+
+        window.showNotification = (message, type = 'info') => {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' : 
+                type === 'error' ? 'bg-red-500 text-white' : 
+                'bg-blue-500 text-white'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        };
+    </script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans">
+    <header class="flex justify-between items-center mb-6 p-4 bg-white shadow-md sticky top-0 z-10">
+        <h1 id="header-title" class="text-2xl font-bold text-gray-800">Attendance Portal</h1>
+        <div class="flex items-center space-x-4">
+            <div id="edit-mode-indicator" class="hidden bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                ✏️ Edit Mode Active
+            </div>
+            <button id="login-btn" class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                Admin Login
+            </button>
+            <button id="logout-btn" class="hidden py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                Logout
+            </button>
+        </div>
+    </header>
+
+    <div id="main-content" class="p-8 hidden">
+        <div id="dashboard-container" class="mb-6"></div>
+        <div id="tabs" class="px-8 mb-4">
+            <div class="flex space-x-1 bg-white rounded-lg p-1 shadow">
+                <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 active bg-[#3C3E52] text-white" data-tab="dashboard">
+                    📈 Dashboard
+                </button>
+                <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700" data-tab="attendance">
+                    📊 Attendance
+                </button>
+                <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700" data-tab="students">
+                    👨‍🎓 Students
+                </button>
+                <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700" data-tab="teachers">
+                    👨‍🏫 Teachers
+                </button>
+            </div>
+        </div>
+
+        <div id="dashboard-content">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6 mt-8">Admin Dashboard</h2>
+            <div id="dashboard-container">
+                <p class="text-center text-gray-500 mt-8">Loading data...</p>
+            </div>
+        </div>
+
+        <div id="attendance-content" class="hidden">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6 mt-8">Attendance Records</h2>
+            <div id="classes-container">
+                <p class="text-center text-gray-500 mt-8">Loading data...</p>
+            </div>
+        </div>
+
+        <div id="students-content" class="hidden">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6 mt-8">Students List</h2>
+            <div id="students-container">
+                <p class="text-center text-gray-500 mt-8">Loading data...</p>
+            </div>
+        </div>
+        
+        <div id="teachers-content" class="hidden">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6 mt-8">Teachers List</h2>
+            <div id="teachers-container">
+                <p class="text-center text-gray-500 mt-8">Loading data...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full space-y-6">
+            <div class="flex justify-between items-center">
+                <button id="modal-back-btn" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                </button>
+                <h2 class="text-2xl font-bold text-gray-800 flex-grow text-center">Admin Login</h2>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                    <input type="email" id="email" name="email" required placeholder="admin@nitdelhi.ac.in"
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="••••••••"
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div id="error-message" class="text-sm text-red-500 text-center"></div>
+                <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#3C3E52] hover:bg-[#2e303e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3C3E52]">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Attendance Dashboard</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin & Teacher Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <div class="max-w-7xl mx-auto p-6">
-    <h1 class="text-4xl font-extrabold text-center mb-8 text-indigo-700">📊 Attendance Dashboard</h1>
+<body class="bg-gray-100">
 
-    <!-- Action Buttons -->
-    <div class="flex justify-center space-x-4 mb-8">
-      <button onclick="openModal('student')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700">➕ Add Student</button>
-      <button onclick="openModal('teacher')" class="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700">➕ Add Teacher</button>
-      <button onclick="openModal('class')" class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700">➕ Add Class</button>
-    </div>
-
-    <div class="space-y-10">
-      <div>
-        <h2 class="text-2xl font-semibold mb-4 text-gray-800">📚 Classes</h2>
-        <div id="classes-container"></div>
-      </div>
-
-      <div>
-        <h2 class="text-2xl font-semibold mb-4 text-gray-800">👩‍🎓 Students</h2>
-        <div id="students-container"></div>
-      </div>
-
-      <div>
-        <h2 class="text-2xl font-semibold mb-4 text-gray-800">👨‍🏫 Teachers</h2>
-        <div id="teachers-container"></div>
-      </div>
+  <!-- Login Modal -->
+  <div id="login-modal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-70 z-50">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+      <h2 class="text-2xl font-bold mb-4 text-center">Login</h2>
+      <input type="email" id="email" placeholder="Email"
+        class="w-full p-2 border border-gray-300 rounded mb-3" />
+      <input type="password" id="password" placeholder="Password"
+        class="w-full p-2 border border-gray-300 rounded mb-3" />
+      <button id="login-btn"
+        class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Login</button>
     </div>
   </div>
 
-  <!-- Reusable Modal -->
-  <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
-      <h2 id="modal-title" class="text-xl font-bold mb-4">Modal</h2>
-      <form id="modal-form" class="space-y-4"></form>
-      <div class="flex justify-end space-x-4 mt-6">
-        <button onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
-        <button id="modal-submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save</button>
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden p-6">
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Dashboard</h1>
+    <div class="flex justify-between items-center mb-4">
+      <p id="welcome-message" class="text-lg text-gray-700"></p>
+      <button id="logout-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+        Logout
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div id="tabs" class="flex space-x-2 mb-6 hidden">
+      <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700" data-tab="dashboard-content">📊 Dashboard</button>
+      <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700 hidden" data-tab="teachers-content">👨‍🏫 Teachers</button>
+      <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700 hidden" data-tab="students-content">🎓 Students</button>
+      <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700" data-tab="attendance-content">📅 Attendance</button>
+      <button class="tab-btn flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-gray-200 text-gray-700 hidden" data-tab="profile-content">👤 Profile</button>
+    </div>
+
+    <!-- Content Areas -->
+    <div id="dashboard-content" class="tab-content"> 
+      <h2 class="text-2xl font-semibold mb-4">Overview</h2>
+      <div id="overview-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    </div>
+
+    <div id="teachers-content" class="tab-content hidden"> 
+      <h2 class="text-2xl font-semibold mb-4">Teachers</h2>
+      <div id="teachers-container" class="grid gap-4"></div>
+    </div>
+
+    <div id="students-content" class="tab-content hidden"> 
+      <h2 class="text-2xl font-semibold mb-4">Students</h2>
+      <div id="students-container" class="grid gap-4"></div>
+    </div>
+
+    <div id="attendance-content" class="tab-content hidden"> 
+      <h2 class="text-2xl font-semibold mb-4">Attendance</h2>
+      <div id="attendance-container" class="grid gap-4"></div>
+    </div>
+
+    <div id="profile-content" class="tab-content hidden"> 
+      <h2 class="text-2xl font-semibold mb-4">My Profile</h2>
+      <div id="profile-container" class="bg-white p-6 rounded-lg shadow-md max-w-lg mx-auto">
+        <p class="mb-2"><strong>Name:</strong> <span id="profile-name">Loading...</span></p>
+        <p class="mb-2"><strong>Email:</strong> <span id="profile-email">Loading...</span></p>
+        <p class="mb-2"><strong>Department:</strong> <span id="profile-dept">Loading...</span></p>
+        <p class="mb-2"><strong>Year:</strong> <span id="profile-year">Loading...</span></p>
+        <button id="edit-profile-btn" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+          Edit Profile
+        </button>
       </div>
     </div>
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
-    import { getDatabase, ref, get, update, remove, push, set } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
+    // 🔹 Replace with your Firebase config
     const firebaseConfig = {
-      apiKey: "AIzaSyCbSGtIkm3ZXr4yxeb0G6seRJBHiclrC3E",
-      authDomain: "vidhar-27086.firebaseapp.com",
-      databaseURL: "https://vidhar-27086-default-rtdb.firebaseio.com",
-      projectId: "vidhar-27086",
-      storageBucket: "vidhar-27086.firebasestorage.app",
-      messagingSenderId: "720908804489",
-      appId: "1:720908804489:web:234a26af1442c965db0158",
-      measurementId: "G-K0ZZZ51SFK"
-    };
-
+            apiKey: "AIzaSyCbSGtIkm3ZXr4yxeb0G6seRJBHiclrC3E",
+            authDomain: "vidhar-27086.firebaseapp.com",
+            databaseURL: "https://vidhar-27086-default-rtdb.firebaseio.com",
+            projectId: "vidhar-27086",
+            storageBucket: "vidhar-27086.firebasestorage.app",
+            messagingSenderId: "720908804489",
+            appId: "1:720908804489:web:234a26af1442c965db0158",
+            measurementId: "G-K0ZZZ51SFK"
+        };
     const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
     const auth = getAuth(app);
+    const database = getDatabase(app);
+    const adminEmail = "arungoyal706@gmail.com"; // 🔹 Change to your real admin email
 
-    const classesContainer = document.getElementById("classes-container");
-    const studentsContainer = document.getElementById("students-container");
-    const teachersContainer = document.getElementById("teachers-container");
+    // Login
+    document.getElementById("login-btn").addEventListener("click", () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      signInWithEmailAndPassword(auth, email, password)
+        .catch(err => alert(err.message));
+    });
 
-    // Modal handling
-    const modal = document.getElementById("modal");
-    const modalTitle = document.getElementById("modal-title");
-    const modalForm = document.getElementById("modal-form");
-    const modalSubmit = document.getElementById("modal-submit");
-    let currentType = null;
-    let editId = null;
-    let extraParent = null;
+    // Logout
+    document.getElementById("logout-btn").addEventListener("click", () => signOut(auth));
 
-    window.openModal = function(type, id = null, parent = null, data = {}) {
-      modal.classList.remove("hidden");
-      currentType = type;
-      editId = id;
-      extraParent = parent;
-      modalForm.innerHTML = "";
+    // Auth state
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById("login-modal").classList.add("hidden");
+        document.getElementById("dashboard").classList.remove("hidden");
+        document.getElementById("welcome-message").textContent = `Welcome, Arun`;
 
-      if (type === "student") {
-        modalTitle.innerText = id ? "Edit Student" : "Add Student";
-        modalForm.innerHTML = `
-          <input type="text" name="name" placeholder="Name" class="w-full border rounded-lg p-2" value="${data.name || ""}">
-          <input type="text" name="rollNumber" placeholder="Roll Number" class="w-full border rounded-lg p-2" value="${data.rollNumber || ""}">
-          <input type="text" name="email" placeholder="Email" class="w-full border rounded-lg p-2" value="${data.email || ""}">
-          <input type="text" name="department" placeholder="Department" class="w-full border rounded-lg p-2" value="${data.department || ""}">
-          <input type="text" name="program" placeholder="Program" class="w-full border rounded-lg p-2" value="${data.program || ""}">
-          <input type="text" name="year" placeholder="Year" class="w-full border rounded-lg p-2" value="${data.year || ""}">
-        `;
-      }
-      else if (type === "teacher") {
-        modalTitle.innerText = id ? "Edit Teacher" : "Add Teacher";
-        modalForm.innerHTML = `
-          <input type="text" name="name" placeholder="Name" class="w-full border rounded-lg p-2" value="${data.name || ""}">
-          <input type="text" name="email" placeholder="Email" class="w-full border rounded-lg p-2" value="${data.email || ""}">
-        `;
-      }
-      else if (type === "class") {
-        modalTitle.innerText = id ? "Edit Class" : "Add Class";
-        modalForm.innerHTML = `
-          <input type="text" name="subjectName" placeholder="Subject Name" class="w-full border rounded-lg p-2" value="${data.subjectName || ""}">
-          <input type="text" name="department" placeholder="Department" class="w-full border rounded-lg p-2" value="${data.department || ""}">
-          <input type="text" name="teacherName" placeholder="Teacher Name" class="w-full border rounded-lg p-2" value="${data.teacherName || ""}">
-        `;
-      }
-    };
-
-    window.closeModal = function() {
-      modal.classList.add("hidden");
-      modalForm.innerHTML = "";
-      editId = null;
-      extraParent = null;
-    };
-
-    modalSubmit.onclick = async function(e) {
-      e.preventDefault();
-      const formData = Object.fromEntries(new FormData(modalForm).entries());
-
-      if (currentType === "student") {
-        if (editId) await update(ref(database, "users/" + editId), formData);
-        else {
-          const newRef = push(ref(database, "users"));
-          await set(newRef, { ...formData, role: "student", uid: newRef.key });
+        if (user.email === adminEmail) {
+          setupAdmin();
+        } else {
+          setupTeacher(user.uid);
         }
-        fetchStudentsData();
+      } else {
+        document.getElementById("login-modal").classList.remove("hidden");
+        document.getElementById("dashboard").classList.add("hidden");
       }
-      else if (currentType === "teacher") {
-        if (editId) await update(ref(database, "users/" + editId), formData);
-        else {
-          const newRef = push(ref(database, "users"));
-          await set(newRef, { ...formData, role: "teacher", uid: newRef.key });
-        }
-        fetchTeachersData();
-      }
-      else if (currentType === "class") {
-        if (editId && extraParent) await update(ref(database, `classes/${extraParent}/${editId}`), formData);
-        else {
-          const newRef = push(ref(database, "classes/defaultTeacher")); // adjust teacherUid
-          await set(newRef, { ...formData });
-        }
-        fetchAttendanceData();
-      }
+    });
 
-      closeModal();
-    };
-
-    // Delete helpers
-    window.deleteStudent = async uid => {
-      if (confirm("Delete this student?")) {
-        await remove(ref(database, "users/" + uid));
-        fetchStudentsData();
-      }
-    };
-
-    window.deleteTeacher = async uid => {
-      if (confirm("Delete this teacher?")) {
-        await remove(ref(database, "users/" + uid));
-        fetchTeachersData();
-      }
-    };
-
-    window.deleteClass = async (teacherUid, classId) => {
-      if (confirm("Delete this class?")) {
-        await remove(ref(database, `classes/${teacherUid}/${classId}`));
-        fetchAttendanceData();
-      }
-    };
-
-    // Expand/Collapse
-    window.toggleExpansion = function (el) {
-      const details = el.parentElement.querySelector(".class-details");
-      if (details) details.classList.toggle("hidden");
-    };
-
-    // Fetch Functions (students/teachers/classes) same as before but with Edit/Delete buttons
-    async function fetchStudentsData() {
-      const snap = await get(ref(database, "users"));
-      if (!snap.exists()) return;
-      const users = snap.val();
-      const students = Object.values(users).filter(u => u.role === "student");
-
-      studentsContainer.innerHTML = "";
-      students.forEach(s => {
-        studentsContainer.innerHTML += `
-          <div class="bg-white p-4 rounded-lg shadow flex justify-between items-center mb-3">
-            <div>
-              <h3 class="font-bold">${s.rollNumber} - ${s.name}</h3>
-              <p class="text-sm text-gray-600">${s.email}</p>
-              <p class="text-xs text-gray-500">${s.department} | ${s.program} | ${s.year}</p>
-            </div>
-            <div>
-              <button class="text-blue-600 mr-2" onclick='openModal("student","${s.uid}",null,${JSON.stringify(s)})'>✏️</button>
-              <button class="text-red-600" onclick="deleteStudent('${s.uid}')">🗑️</button>
-            </div>
-          </div>`;
+    // Tabs
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("bg-blue-500","text-white"));
+        document.getElementById(btn.dataset.tab).classList.remove("hidden");
+        btn.classList.add("bg-blue-500","text-white");
       });
+    });
+
+    // --- Functions ---
+    function setupAdmin() {
+      document.getElementById("tabs").classList.remove("hidden");
+      document.querySelector("[data-tab='teachers-content']").classList.remove("hidden");
+      document.querySelector("[data-tab='students-content']").classList.remove("hidden");
+      document.querySelector("[data-tab='profile-content']").classList.add("hidden");
+      loadDashboard();
+      loadAttendance();
+      loadStudents();
+      loadTeachers();
     }
+    function loadDashboard(uid) {
+  const overview = document.getElementById("overview-container");
+  overview.innerHTML = "";
 
-    async function fetchTeachersData() {
-      const snap = await get(ref(database, "users"));
-      if (!snap.exists()) return;
-      const users = snap.val();
-      const teachers = Object.values(users).filter(u => u.role === "teacher");
-
-      teachersContainer.innerHTML = "";
-      teachers.forEach(t => {
-        teachersContainer.innerHTML += `
-          <div class="bg-white p-4 rounded-lg shadow flex justify-between items-center mb-3">
-            <div>
-              <h3 class="font-bold">${t.name}</h3>
-              <p class="text-sm text-gray-600">${t.email}</p>
-            </div>
-            <div>
-              <button class="text-blue-600 mr-2" onclick='openModal("teacher","${t.uid}",null,${JSON.stringify(t)})'>✏️</button>
-              <button class="text-red-600" onclick="deleteTeacher('${t.uid}')">🗑️</button>
-            </div>
-          </div>`;
+  if (uid) {
+    // Teacher dashboard → only their classes
+    onValue(ref(database, "classes/" + uid), (snapshot) => {
+      const classes = snapshot.val() || {};
+      const totalClasses = Object.keys(classes).length;
+      let totalStudents = 0;
+      Object.values(classes).forEach(cls => {
+        totalStudents += cls.joinedStudents ? Object.keys(cls.joinedStudents).length : 0;
       });
-    }
-
-    async function fetchAttendanceData() {
-      const snap = await get(ref(database, "classes"));
-      if (!snap.exists()) return;
-      const classes = snap.val();
-
-      classesContainer.innerHTML = "";
-      Object.keys(classes).forEach(teacherUid => {
-        Object.keys(classes[teacherUid]).forEach(classId => {
-          const c = classes[teacherUid][classId];
-          classesContainer.innerHTML += `
-            <div class="bg-white p-4 rounded-lg shadow mb-3">
-              <div class="flex justify-between items-center cursor-pointer" onclick="toggleExpansion(this)">
-                <h3 class="font-bold">${c.subjectName}</h3>
-                <div>
-                  <button class="text-blue-600 mr-2" onclick='openModal("class","${classId}","${teacherUid}",${JSON.stringify(c)})'>✏️</button>
-                  <button class="text-red-600" onclick="deleteClass('${teacherUid}','${classId}')">🗑️</button>
-                </div>
-              </div>
-              <div class="class-details hidden mt-3 text-sm text-gray-600">
-                Teacher: ${c.teacherName || "N/A"} | Dept: ${c.department || "N/A"}
-              </div>
-            </div>`;
+      overview.innerHTML = `
+        <div class="p-4 bg-white shadow rounded">My Classes: ${totalClasses}</div>
+        <div class="p-4 bg-white shadow rounded">Total Students: ${totalStudents}</div>
+      `;
+    });
+  } else {
+    // Admin dashboard → all classes
+    onValue(ref(database, "classes"), (snapshot) => {
+      const teachers = snapshot.val() || {};
+      let totalClasses = 0, totalStudents = 0;
+      Object.values(teachers).forEach(teacherClasses => {
+        totalClasses += Object.keys(teacherClasses).length;
+        Object.values(teacherClasses).forEach(cls => {
+          totalStudents += cls.joinedStudents ? Object.keys(cls.joinedStudents).length : 0;
         });
       });
+      overview.innerHTML = `
+        <div class="p-4 bg-white shadow rounded">All Classes: ${totalClasses}</div>
+        <div class="p-4 bg-white shadow rounded">Total Students: ${totalStudents}</div>
+      `;
+    });
+  }
+}
+
+function loadTeachers() {
+  const container = document.getElementById("teachers-container");
+  onValue(ref(database, "users"), (snapshot) => {
+    container.innerHTML = "";
+    const users = snapshot.val() || {};
+    Object.values(users).forEach(u => {
+      if (u.role === "teacher") {
+        container.innerHTML += `
+          <div class="p-4 bg-white shadow rounded">
+            <p><strong>${u.name}</strong> (${u.department})</p>
+            <p>Email: ${u.email}</p>
+          </div>
+        `;
+      }
+    });
+  });
+}
+
+function loadStudents() {
+  const container = document.getElementById("students-container");
+  onValue(ref(database, "users"), (snapshot) => {
+    container.innerHTML = "";
+    const users = snapshot.val() || {};
+    Object.values(users).forEach(u => {
+      if (u.role === "student") {
+        container.innerHTML += `
+          <div class="p-4 bg-white shadow rounded">
+            <p><strong>${u.name}</strong> (Roll: ${u.rollNumber})</p>
+            <p>Email: ${u.email}</p>
+            <p>Year: ${u.year}, Dept: ${u.department}</p>
+          </div>
+        `;
+      }
+    });
+  });
+}
+
+function loadAttendance(uid) {
+  const container = document.getElementById("attendance-container");
+  container.innerHTML = "";
+
+  if (uid) {
+    // Teacher → only their classes
+    onValue(ref(database, "classes/" + uid), (snapshot) => {
+      const classes = snapshot.val() || {};
+      renderAttendance(container, classes, uid);
+    });
+  } else {
+    // Admin → all teachers/classes
+    onValue(ref(database, "classes"), (snapshot) => {
+      const allClasses = snapshot.val() || {};
+      Object.keys(allClasses).forEach(tUid => {
+        renderAttendance(container, allClasses[tUid], tUid);
+      });
+    });
+  }
+}
+
+function renderAttendance(container, classes, teacherUid) {
+  Object.entries(classes).forEach(([classCode, cls]) => {
+    const students = cls.joinedStudents || {};
+    container.innerHTML += `
+      <div class="p-4 bg-white shadow rounded mb-4">
+        <h3 class="font-semibold">${cls.subjectName} (${classCode}) - ${cls.teacherName}</h3>
+        <div class="mt-2">
+          ${Object.entries(students).map(([stuUid, stu]) => `
+            <div class="flex items-center justify-between border-b py-1">
+              <span>${stu.name} (${stu.email})</span>
+              <button onclick="toggleAttendance('${teacherUid}','${classCode}','${stuUid}')" 
+                class="px-2 py-1 bg-green-500 text-white rounded">Mark Toggle</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  });
+}
+
+// Toggle attendance (simplified)
+window.toggleAttendance = (teacherUid, classCode, stuUid) => {
+  const today = new Date().toISOString().split("T")[0];
+  const path = `classes/${teacherUid}/${classCode}/attendance/${today}/default/${stuUid}`;
+  const r = ref(database, path);
+  onValue(r, (snap) => {
+    const status = snap.val();
+    set(r, status === "Present" ? "Absent" : "Present");
+  }, {onlyOnce: true});
+};
+
+
+    function setupTeacher(uid) {
+      document.getElementById("tabs").classList.remove("hidden");
+      document.querySelector("[data-tab='teachers-content']").classList.add("hidden");
+      document.querySelector("[data-tab='students-content']").classList.add("hidden");
+      document.querySelector("[data-tab='profile-content']").classList.remove("hidden");
+      loadDashboard(uid);
+      loadAttendance(uid);
+      loadProfile(uid);
     }
 
-    async function fetchAll() {
-      await fetchStudentsData();
-      await fetchTeachersData();
-      await fetchAttendanceData();
+    function loadProfile(uid) {
+      onValue(ref(database, "users/" + uid), (snapshot) => {
+        const user = snapshot.val() || {};
+        document.getElementById("profile-name").textContent = user.name || "N/A";
+        document.getElementById("profile-email").textContent = user.email || "N/A";
+        document.getElementById("profile-dept").textContent = user.department || "N/A";
+        document.getElementById("profile-year").textContent = user.year || "N/A";
+      });
     }
-
-    fetchAll();
   </script>
 </body>
 </html>

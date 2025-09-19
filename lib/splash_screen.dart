@@ -69,6 +69,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Align(
+              alignment: Alignment.center,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 20.0),
+                child: Image.asset(
+                  'assets/Nitd.png',
+                  height: 100,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
             ScaleTransition(
               scale: _logoAnimation,
               child: Container(
