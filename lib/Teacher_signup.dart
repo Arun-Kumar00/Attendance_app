@@ -20,8 +20,7 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
-  final List<String> _genders = ['Male', 'Female', 'Other'];
-  String? _selectedGender;
+
 
   @override
   void dispose() {
@@ -65,7 +64,7 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
         'email': email,
         'role': 'teacher',
         'uid': userId,
-        'gender': _selectedGender,
+
       });
 
       // Send verification email
@@ -188,27 +187,8 @@ class _TeacherSignupScreenState extends State<TeacherSignupScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 20),
-                            DropdownButtonFormField<String>(
-                              value: _selectedGender,
-                              items: _genders
-                                  .map((gender) => DropdownMenuItem(value: gender, child: Text(gender)))
-                                  .toList(),
-                              onChanged: (value) => setState(() => _selectedGender = value!),
-                              decoration: InputDecoration(
-                                labelText: 'Gender',
-                                prefixIcon: const Icon(Icons.transgender, color: Color(0xFF3C3E52)),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please select your gender';
-                                }
-                                return null;
-                              },
-                            ),
+
+
                             const SizedBox(height: 20),
                             TextFormField(
                               controller: _emailController,
